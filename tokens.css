@@ -1,0 +1,190 @@
+/* ─────────────────────────────────────────────────────────────────
+   BAND-MAID Unofficial · Design Tokens
+   Distilled from the live app shell + every view (~40 HTML files).
+   The whole product is one dense, dark "fan dashboard" — gold accent
+   on near-black, ultra-tight density, lots of small chrome.
+   ───────────────────────────────────────────────────────────────── */
+
+:root {
+
+  /* ── SURFACES (a 5-step near-black ladder) ───────────────────── */
+  --bm-bg:        #0a0a0a;   /* page / app background  */
+  --bm-bg2:       #141414;   /* chrome: header, sidebar, group head */
+  --bm-bg3:       #1c1c1c;   /* cards, inputs, hover     */
+  --bm-bg4:       #242424;   /* raised / pressed         */
+  --bm-bg-page:   #000000;   /* true black (rare; behind iframes)  */
+
+  /* ── BORDERS (two-step) ──────────────────────────────────────── */
+  --bm-border:    #2a2a2a;   /* default 1px hairline     */
+  --bm-border-2:  #3a3a3a;   /* hover / focus / button outline */
+
+  /* ── TEXT (3-step + dim variants) ────────────────────────────── */
+  --bm-text:      #f0f0f0;   /* primary white-on-dark    */
+  --bm-text-2:    #999999;   /* secondary muted          */
+  --bm-text-3:    #555555;   /* tertiary / labels        */
+  /* Some views use a cooler muted scale on data-heavy screens */
+  --bm-text-cool-2:#b8c8d8;
+  --bm-text-cool-3:#7a8a9a;
+
+  /* ── BRAND ACCENT — champagne gold ───────────────────────────── */
+  --bm-accent:    #c8a96e;   /* primary accent — logo border, active */
+  --bm-accent-d:  #a8843d;   /* darker for hover/press   */
+  --bm-accent-dim:rgba(200,169,110,0.12);     /* tint background */
+  --bm-accent-border:rgba(200,169,110,0.30);  /* tinted border   */
+
+  /* ── SECONDARY HUES (purposeful, not decorative) ─────────────── */
+  --bm-spotify:   #1db954;   /* spotify stream counts    */
+  --bm-spotify-dim:rgba(29,185,84,0.10);
+  --bm-spotify-border:rgba(29,185,84,0.30);
+
+  --bm-red:       #ef4444;   /* MV badge, errors, danger */
+  --bm-red-dim:   rgba(239,68,68,0.15);
+  --bm-red-border:rgba(239,68,68,0.30);
+
+  --bm-violet:    #8b5cf6;   /* Live badge, secondary links */
+  --bm-violet-dim:rgba(139,92,246,0.15);
+  --bm-violet-border:rgba(139,92,246,0.30);
+
+  --bm-pink:      #ec4899;   /* Kobato lead badge        */
+  --bm-pink-dim:  rgba(236,72,153,0.15);
+  --bm-pink-border:rgba(236,72,153,0.30);
+
+  --bm-success:   #22c55e;
+  --bm-danger:    #ef4444;
+
+  /* ── TYPE ─────────────────────────────────────────────────────
+     The repo runs on system stacks — there are no webfonts and no
+     custom-loaded faces in the source. We faithfully reproduce that
+     here. If you need an "on-brand display" type for a poster, the
+     band's own logo is hand-drawn cracked-blackletter — see
+     ICONOGRAPHY in README for substitution guidance.
+     ───────────────────────────────────────────────────────────── */
+  --bm-font:       'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont,
+                   'Helvetica Neue', Arial, sans-serif;
+  --bm-font-mono:  'Consolas', 'Monaco', 'Cascadia Mono', ui-monospace, monospace;
+  /* Optional poster/display face — substitute, NOT shipped. Flagged in README. */
+  --bm-font-display:'Metal Mania', 'UnifrakturCook', 'Cinzel', serif;
+
+  /* Type ramp (base 14px — matches the app's body) */
+  --bm-fs-9:   9px;    /* micro-eyebrow / nav badges     */
+  --bm-fs-10: 10px;    /* table dates, badge text        */
+  --bm-fs-11: 11px;    /* group labels, toolbars         */
+  --bm-fs-12: 12px;    /* card secondary, detail meta    */
+  --bm-fs-13: 13px;    /* table rows, nav items, default */
+  --bm-fs-14: 14px;    /* body base                      */
+  --bm-fs-15: 15px;    /* app name, section titles       */
+  --bm-fs-18: 18px;    /* detail headers                 */
+  --bm-fs-22: 22px;    /* detail H1                      */
+  --bm-fs-28: 28px;    /* hero on welcome / about        */
+
+  --bm-lh-tight: 1.25;
+  --bm-lh-base:  1.45;
+  --bm-lh-loose: 1.65;
+
+  --bm-tracked:  0.10em;   /* on uppercase eyebrows */
+  --bm-tracked-tight: 0.04em;  /* on app name      */
+
+  /* ── SHAPE ─────────────────────────────────────────────────────
+     Small radii. The app reads as "data tool", not "rounded card UI".
+     ───────────────────────────────────────────────────────────── */
+  --bm-radius-sm:  4px;   /* badges, chips, copy-url btn */
+  --bm-radius:     6px;   /* logo tile, search box       */
+  --bm-radius-md:  8px;   /* default — buttons, cards    */
+  --bm-radius-lg: 10px;   /* spotify embed, modals       */
+  --bm-radius-pill: 20px; /* pill counts / tag pills     */
+
+  /* ── SPACING (4px base, dense) ───────────────────────────────── */
+  --bm-space-1:  4px;
+  --bm-space-2:  6px;
+  --bm-space-3:  8px;
+  --bm-space-4: 10px;
+  --bm-space-5: 12px;
+  --bm-space-6: 14px;
+  --bm-space-7: 16px;
+  --bm-space-8: 20px;
+  --bm-space-9: 24px;
+
+  /* ── ELEVATION ────────────────────────────────────────────────
+     The app uses *contrast layering*, not shadows — surfaces stack
+     via the bg ladder. Shadows only appear on the drawer overlay.
+     ───────────────────────────────────────────────────────────── */
+  --bm-shadow-drawer: 0 8px 32px rgba(0,0,0,0.6);
+  --bm-shadow-pop:    0 4px 14px rgba(0,0,0,0.5);
+
+  /* ── CHROME HEIGHTS ──────────────────────────────────────────── */
+  --bm-h-header:  52px;
+  --bm-h-toolbar: 48px;
+  --bm-h-urlbar:  30px;
+  --bm-h-bottom-nav: 96px;
+  --bm-w-sidebar: 220px;
+
+  /* ── MOTION ─────────────────────────────────────────────────── */
+  --bm-dur-fast: 0.12s;
+  --bm-dur-base: 0.15s;
+  --bm-dur-slow: 0.28s;
+  --bm-ease:     cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+/* ─────────────────────────────────────────────────────────────────
+   SEMANTIC TYPE — drop-in classes for any view
+   ───────────────────────────────────────────────────────────────── */
+
+.bm-eyebrow {
+  font-size: var(--bm-fs-9);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bm-text-3);
+}
+.bm-group-label {
+  font-size: var(--bm-fs-11);
+  font-weight: 700;
+  letter-spacing: var(--bm-tracked);
+  text-transform: uppercase;
+  color: var(--bm-accent);
+}
+.bm-h1 {
+  font-size: var(--bm-fs-22);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: var(--bm-lh-tight);
+  color: var(--bm-text);
+}
+.bm-h2 {
+  font-size: var(--bm-fs-18);
+  font-weight: 700;
+  line-height: var(--bm-lh-tight);
+  color: var(--bm-text);
+}
+.bm-app-name {
+  font-size: var(--bm-fs-15);
+  font-weight: 700;
+  letter-spacing: var(--bm-tracked-tight);
+  color: var(--bm-text);
+}
+.bm-app-name .accent { color: var(--bm-accent); }
+
+.bm-body  { font-size: var(--bm-fs-13); color: var(--bm-text);    line-height: var(--bm-lh-base); }
+.bm-body-2{ font-size: var(--bm-fs-12); color: var(--bm-text-2);  line-height: var(--bm-lh-loose); }
+.bm-meta  { font-size: var(--bm-fs-11); color: var(--bm-text-3); }
+.bm-mono  { font-family: var(--bm-font-mono); font-size: var(--bm-fs-11); color: var(--bm-text-3); }
+
+.bm-stat-num {
+  font-size: var(--bm-fs-13);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--bm-text);
+}
+.bm-stat-num.spotify { color: var(--bm-spotify); }
+.bm-stat-num.accent  { color: var(--bm-accent);  }
+
+.bm-pill {
+  display: inline-flex; align-items: center;
+  font-size: var(--bm-fs-10);
+  background: var(--bm-bg3);
+  border: 1px solid var(--bm-border);
+  border-radius: var(--bm-radius-pill);
+  padding: 1px 8px;
+  color: var(--bm-text-3);
+}

@@ -1,0 +1,223 @@
+/* BAND-MAID font builder.
+ *
+ * Takes traced glyphs (pixel-space polygons from PNG tracing) and emits a TTF
+ * ArrayBuffer using opentype.js.
+ *
+ * Coordinate transform per glyph:
+ *   design_x = (px_x - bbox.minX) * scale
+ *   design_y = (bbox.maxY - px_y) * scale + yOffset      // flip y to baseline-up
+ *
+ *   scale     = capTargetEm / sourceCapPx  (per-batch — old PNGs were 320, new 1024)
+ *   yOffset   = 0 for normal letters; negative for B (drops body to baseline so descender hangs)
+ *
+ * Winding: tracer outputs CW polygons in y-down image space, so after the y-flip
+ * they're CCW in font space. TTF wants CW outer + CCW holes (per nonzero winding),
+ * so we reverse every polygon's point order before emitting.
+ */
+
+(function () {
+  const UNITS_PER_EM = 1000;
+  const CAP_HEIGHT   = 700;       // target cap-height in em units
+  const ASCENDER     = 900;       // includes room for PO's diacritic
+  const DESCENDER    = -350;      // includes room for B's leg
+  const SIDE_BEARING = 30;        // em units of breathing room each side — tight per user request
+
+  // Hard-coded per-glyph overrides where the bbox alone can't tell us
+  // where cap-line/baseline sit. Values are FRACTIONS of bbox height.
+  //
+  //   bodyTopFrac:  0 = main body starts at top of bbox.   For PO this is ~0.04
+  //                (the diacritic above body).
+  //   bodyBotFrac:  1 = main body ends at bottom of bbox.  For B this is < 1
+  //                (descender below body).
+  const GLYPH_OVERRIDES = {
+    'B':  { bodyBotFrac: 307 / 440 },   // logo-original ratio: I.bbox.h / B.bbox.h
+    'PO': { bodyTopFrac: 0.045 },       // diacritic at top-right is ~4-5% of bbox
+    // yShiftEm: nudge the glyph up after the y-flip. Use for marks that should
+    // float at mid-cap rather than sit on baseline (hyphen, future colon, etc.).
+    'HYPHEN': { yShiftEm: 285 },        // raise hyphen from baseline to mid-cap
+  };
+
+  // Map glyph names → unicode codepoints (and aliases)
+  // Each entry: { primary: U+xxxx, also: [U+xxxx, ...] }
+  function unicodesFor(name) {
+    if (/^[A-Z]$/.test(name)) {
+      const u = name.charCodeAt(0);
+      return [u, u + 32];                  // 'A' (0x41) + 'a' (0x61) → same glyph
+    }
+    if (/^[0-9]$/.test(name)) return [name.charCodeAt(0)];
+    if (name === 'HYPHEN') return [0x002D];
+    if (name === 'EXCLAM') return [0x0021];
+    if (name === 'PO')     return [0x307C]; // ぼ
+    return [];
+  }
+
+  function convertPath(polygons, transform) {
+    const p = new opentype.Path();
+    for (const poly of polygons) {
+      if (poly.length < 3) continue;
+      // reverse to get correct winding in y-up space
+      const r = poly.slice().reverse();
+      const [x0, y0] = transform(r[0]);
+      p.moveTo(x0, y0);
+      for (let i = 1; i < r.length; i++) {
+        const [x, y] = transform(r[i]);
+        p.lineTo(x, y);
+      }
+      p.close();
+    }
+    return p;
+  }
+
+  // Build a single glyph from traced data. Returns { glyph, advanceWidth }.
+  function buildGlyph(name, traced, refCapPx) {
+    const bbox = traced.bbox;
+    const scale = CAP_HEIGHT / refCapPx;
+
+    // Determine the body region (rows of bbox that count as cap-to-baseline)
+    const ov = GLYPH_OVERRIDES[name] || {};
+    const bodyTopFrac = ov.bodyTopFrac != null ? ov.bodyTopFrac : 0;
+    const bodyBotFrac = ov.bodyBotFrac != null ? ov.bodyBotFrac : 1;
+
+    // Body height in pixels
+    const bodyTopPx = bbox.minY + bbox.h * bodyTopFrac;   // smallest px-y of body
+    const bodyBotPx = bbox.minY + bbox.h * bodyBotFrac;   // largest px-y of body
+
+    // We want body-bottom at em y=0 (baseline) and body-top at em y=CAP_HEIGHT.
+    // Map: design_y = (bodyBotPx - px_y) * (CAP_HEIGHT / bodyHeight)
+    // But to keep proportions consistent across the whole face, use the batch scale.
+    // So we use `scale` (batch-wide) and just translate so body bottom is at 0.
+
+    const transform = ([px, py]) => [
+      (px - bbox.minX) * scale,
+      (bodyBotPx - py) * scale + (ov.yShiftEm || 0),
+    ];
+
+    const path = convertPath(traced.polys, transform);
+
+    const advanceWidth = Math.round(bbox.w * scale + SIDE_BEARING * 2);
+    const xOffset = SIDE_BEARING;  // push glyph right by left side-bearing
+    // shift path right by SIDE_BEARING
+    if (xOffset) {
+      for (const cmd of path.commands) {
+        if ('x' in cmd) cmd.x += xOffset;
+        if ('x1' in cmd) cmd.x1 += xOffset;
+        if ('x2' in cmd) cmd.x2 += xOffset;
+      }
+    }
+
+    return { path, advanceWidth };
+  }
+
+  // Determine reference cap-pixel for a glyph based on its source image size,
+  // so old (320px) and new (1024px) batches line up at the same em-cap-height.
+  function refCapForBatch(traced) {
+    return traced.w > 600 ? 711 : 307;   // H.bbox.h (new) / I.bbox.h (old)
+  }
+
+  window.buildBandMaidFont = async function (tracedGlyphs) {
+    if (!window.opentype) throw new Error('opentype.js not loaded');
+
+    // .notdef — required, must be index 0
+    const notdef = new opentype.Glyph({
+      name: '.notdef',
+      unicode: 0,
+      advanceWidth: 500,
+      path: new opentype.Path(),
+    });
+
+    const glyphs = [notdef];
+
+    // Space glyph (no path, just advance)
+    const spacePath = new opentype.Path();
+    glyphs.push(new opentype.Glyph({
+      name: 'space', unicode: 0x0020,
+      advanceWidth: 300,
+      path: spacePath,
+    }));
+
+    // Build all traced glyphs
+    const nameToGlyph = {};
+    for (const name of Object.keys(tracedGlyphs)) {
+      const traced = tracedGlyphs[name];
+      const refCap = refCapForBatch(traced);
+      const { path, advanceWidth } = buildGlyph(name, traced, refCap);
+      const ucs = unicodesFor(name);
+      const glyphName = name === 'HYPHEN' ? 'hyphen' :
+                        name === 'EXCLAM' ? 'exclam' :
+                        name === 'PO'     ? 'po-kobato' :
+                        name;
+      const g = new opentype.Glyph({
+        name: glyphName,
+        unicode: ucs[0],
+        unicodes: ucs,
+        advanceWidth: advanceWidth,
+        path: path,
+      });
+      glyphs.push(g);
+      nameToGlyph[name] = g;
+    }
+
+    // Construct font
+    const font = new opentype.Font({
+      familyName: 'BAND-MAID Display',
+      styleName: 'Regular',
+      unitsPerEm: UNITS_PER_EM,
+      ascender: ASCENDER,
+      descender: DESCENDER,
+      glyphs: glyphs,
+      designer: 'BAND-MAID logo (Pony Canyon)',
+      designerURL: 'https://bandmaid.tokyo/',
+      manufacturer: 'Traced from PNG glyphs',
+      manufacturerURL: '',
+      license: 'Unofficial fan project. Not affiliated with BAND-MAID, MAIDIT, or Pony Canyon.',
+      version: 'Version 0.1',
+      description: 'Display face traced from the BAND-MAID logo. Single weight, all-caps with Kobato-Po hiragana ぼ.',
+    });
+
+    // Set OS/2 cap-height (some renderers honor it)
+    if (font.tables.os2) {
+      font.tables.os2.sCapHeight = CAP_HEIGHT;
+      font.tables.os2.sxHeight   = CAP_HEIGHT;       // no lowercase — same as cap
+    }
+
+    // OpenType ligature: '-' 'P' 'O' '-'  →  PO glyph
+    // We address glyphs by font.glyphs.glyphs[<index>] index; need to find them.
+    const findIdx = (name) => {
+      for (let i = 0; i < font.glyphs.length; i++) {
+        if (font.glyphs.get(i) === nameToGlyph[name]) return i;
+      }
+      return -1;
+    };
+    const hyphenIdx = findIdx('HYPHEN');
+    const pIdx      = findIdx('P');
+    const oIdx      = findIdx('O');
+    const poIdx     = findIdx('PO');
+    if (hyphenIdx > 0 && pIdx > 0 && oIdx > 0 && poIdx > 0) {
+      try {
+        font.substitution.add('liga', {
+          sub: [hyphenIdx, pIdx, oIdx, hyphenIdx],
+          by: poIdx,
+        });
+      } catch (e) {
+        // Some older opentype.js builds want addLigature instead
+        try {
+          font.substitution.addLigature('liga', {
+            sub: [hyphenIdx, pIdx, oIdx, hyphenIdx],
+            by: poIdx,
+          });
+        } catch (e2) {
+          console.warn('Could not register -PO- ligature:', e, e2);
+        }
+      }
+    }
+
+    const buffer = font.toArrayBuffer();
+    const metrics = {
+      numGlyphs: font.glyphs.length,
+      capHeight: CAP_HEIGHT,
+      unitsPerEm: UNITS_PER_EM,
+      poIdx, hyphenIdx, pIdx, oIdx,
+    };
+    return { font, buffer, metrics };
+  };
+})();
